@@ -1,0 +1,107 @@
+-- Fly Script com UI Personalizada no Roblox
+local Players = game:GetService("Players")
+local UserInputService = game:GetService("UserInputService")
+local player = Players.LocalPlayer
+local character = player.Character or player.CharacterAdded:Wait()
+local humanoidRootPart = character:WaitForChild("HumanoidRootPart")
+
+local flying = false
+local speed = 100
+
+-- Criação da UI
+local ScreenGui = Instance.new("ScreenGui", player.PlayerGui)
+local Frame = Instance.new("Frame", ScreenGui)
+Frame.Size = UDim2.new(0.3, 0, 0.2, 0)
+Frame.Position = UDim2.new(0.35, 0, 0.05, 0)
+Frame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+Frame.BorderSizePixel = 0
+
+local SpeedBox = Instance.new("TextBox", Frame)
+SpeedBox.Size = UDim2.new(0.6, 0, 0.3, 0)
+SpeedBox.Position = UDim2.new(0.2, 0, 0.2, 0)
+SpeedBox.PlaceholderText = "Velocidade"
+SpeedBox.Text = tostring(speed)
+SpeedBox.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+SpeedBox.TextColor3 = Color3.fromRGB(255, 255, 255)
+
+local ToggleButton = Instance.new("TextButton", Frame)
+ToggleButton.Size = UDim2.new(0.6, 0, 0.3, 0)
+ToggleButton.Position = UDim2.new(0.2, 0, 0.6, 0)
+ToggleButton.Text = "Ativar Fly"
+ToggleButton.BackgroundColor3 = Color3.fromRGB(70, 70, 70)
+ToggleButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+
+-- Função de Fly
+local function startFly()
+    local bodyGyro = Instance.new("BodyGyro", humanoidRootPart)
+    local bodyVelocity = Instance.new("BodyVelocity", humanoidRootPart)
+
+    bodyGyro.MaxTorque = Vector3.new(math.huge, math.huge, math.huge)
+    bodyGyro.CFrame = humanoidRootPart.CFrame
+
+    bodyVelocity.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
+    bodyVelocity.Velocity = Vector3.zero
+
+    local flyConnection
+    flyConnection = game:GetService("RunService").Heartbeat:Connect(function()
+        if not flying then
+            flyConnection:Disconnect()
+            bodyGyro:Destroy()
+            bodyVelocity:Destroy()
+            return
+        end
+
+        local camera = workspace.CurrentCamera
+        local moveDirection = Vector3.zero
+
+        if UserInputService:IsKeyDown(Enum.KeyCode.W) then
+            moveDirection = moveDirection + camera.CFrame.LookVector
+        end
+        if UserInputService:IsKeyDown(Enum.KeyCode.S) then
+            moveDirection = moveDirection - camera.CFrame.LookVector
+        end
+        if UserInputService:IsKeyDown(Enum.KeyCode.A) then
+            moveDirection = moveDirection - camera.CFrame.RightVector
+        end
+        if UserInputService:IsKeyDown(Enum.KeyCode.D) then
+            moveDirection = moveDirection + camera.CFrame.RightVector
+        end
+        if UserInputService:IsKeyDown(Enum.KeyCode.Space) then
+            moveDirection = moveDirection + Vector3.new(0, 1, 0)
+        end
+        if UserInputService:IsKeyDown(Enum.KeyCode.LeftControl) then
+            moveDirection = moveDirection - Vector3.new(0, 1, 0)
+        end
+
+        bodyVelocity.Velocity = moveDirection.Unit * speed
+    end)
+end
+
+-- Alternar Fly
+local function toggleFly()
+    flying = not flying
+    if flying then
+        startFly()
+        ToggleButton.Text = "Desativar Fly"
+    else
+        ToggleButton.Text = "Ativar Fly"
+    end
+end
+
+-- Atualizar Velocidade
+SpeedBox.FocusLost:Connect(function(enterPressed)
+    if enterPressed then
+        local newSpeed = tonumber(SpeedBox.Text)
+        if newSpeed and newSpeed > 0 then
+            speed = newSpeed
+        end
+    end
+end)
+
+ToggleButton.MouseButton1Click:Connect(toggleFly)
+
+UserInputService.InputBegan:Connect(function(input, isTyping)
+    if not isTyping and input.KeyCode == Enum.KeyCode.E then
+        toggleFly()
+    end
+end)
