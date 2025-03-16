@@ -1,24 +1,100 @@
--- Fly Script com UI Personalizada no Roblox
+-- Fly Script estilo Infinite Yield com UI Movél no Roblox + Tela de Carregamento
 local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
+
 local player = Players.LocalPlayer
 local character = player.Character or player.CharacterAdded:Wait()
 local humanoidRootPart = character:WaitForChild("HumanoidRootPart")
+local humanoid = character:WaitForChild("Humanoid")
 
 local flying = false
 local speed = 100
 
--- Criação da UI
+-- Criação da Tela de Carregamento
+local LoadingGui = Instance.new("ScreenGui", player.PlayerGui)
+local LoadingFrame = Instance.new("Frame", LoadingGui)
+LoadingFrame.Size = UDim2.new(1, 0, 1, 0)
+LoadingFrame.BackgroundColor3 = Color3.new(0, 0, 0)
+LoadingFrame.BackgroundTransparency = 0.6
+
+local LoadingText = Instance.new("TextLabel", LoadingFrame)
+LoadingText.Size = UDim2.new(0.3, 0, 0.1, 0)
+LoadingText.Position = UDim2.new(0.35, 0, 0.4, 0)
+LoadingText.Text = "Carregando."
+LoadingText.TextScaled = true
+LoadingText.TextColor3 = Color3.fromRGB(255, 255, 255)
+LoadingText.BackgroundTransparency = 1
+
+-- Bolinhas estilo YouTube
+local DotsFrame = Instance.new("Frame", LoadingFrame)
+DotsFrame.Size = UDim2.new(0.1, 0, 0.05, 0)
+DotsFrame.Position = UDim2.new(0.45, 0, 0.55, 0)
+DotsFrame.BackgroundTransparency = 1
+
+for i = 1, 3 do
+    local Dot = Instance.new("Frame", DotsFrame)
+    Dot.Size = UDim2.new(0.25, 0, 1, 0)
+    Dot.Position = UDim2.new((i - 1) * 0.35, 0, 0, 0)
+    Dot.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    Dot.Name = "Dot" .. i
+    Dot.BackgroundTransparency = 0
+    Dot:TweenSizeAndPosition(Dot.Size, Dot.Position, "Out", "Sine", 0.5, true)
+end
+
+local function animateDots()
+    while LoadingGui.Parent do
+        for i = 1, 3 do
+            local dot = DotsFrame:FindFirstChild("Dot" .. i)
+            if dot then
+                dot:TweenSize(UDim2.new(0.25, 0, 1, 0), "Out", "Sine", 0.3, true)
+                wait(0.2)
+                dot:TweenSize(UDim2.new(0.2, 0, 0.8, 0), "Out", "Sine", 0.3, true)
+            end
+        end
+    end
+end
+
+spawn(animateDots)
+
+local function animateLoadingText()
+    local states = {"Carregando.", "Carregando..", "Carregando..."}
+    local index = 1
+    while LoadingGui.Parent do
+        LoadingText.Text = states[index]
+        index = index % #states + 1
+        wait(0.5)
+    end
+end
+
+spawn(animateLoadingText)
+
+wait(3)
+LoadingGui:Destroy()
+
+-- Criação da UI do Fly
 local ScreenGui = Instance.new("ScreenGui", player.PlayerGui)
 local Frame = Instance.new("Frame", ScreenGui)
 Frame.Size = UDim2.new(0.3, 0, 0.2, 0)
 Frame.Position = UDim2.new(0.35, 0, 0.05, 0)
 Frame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
 Frame.BorderSizePixel = 0
+Frame.Active = true
+Frame.Draggable = true
+
+local CloseButton = Instance.new("TextButton", Frame)
+CloseButton.Size = UDim2.new(0.1, 0, 0.2, 0)
+CloseButton.Position = UDim2.new(0, 0, 0, 0)
+CloseButton.Text = "X"
+CloseButton.BackgroundColor3 = Color3.fromRGB(255, 0, 0)
+CloseButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+CloseButton.MouseButton1Click:Connect(function()
+    ScreenGui:Destroy()
+end)
 
 local SpeedBox = Instance.new("TextBox", Frame)
 SpeedBox.Size = UDim2.new(0.6, 0, 0.3, 0)
-SpeedBox.Position = UDim2.new(0.2, 0, 0.2, 0)
+SpeedBox.Position = UDim2.new(0.2, 0, 0.3, 0)
 SpeedBox.PlaceholderText = "Velocidade"
 SpeedBox.Text = tostring(speed)
 SpeedBox.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
@@ -26,28 +102,35 @@ SpeedBox.TextColor3 = Color3.fromRGB(255, 255, 255)
 
 local ToggleButton = Instance.new("TextButton", Frame)
 ToggleButton.Size = UDim2.new(0.6, 0, 0.3, 0)
-ToggleButton.Position = UDim2.new(0.2, 0, 0.6, 0)
+ToggleButton.Position = UDim2.new(0.2, 0, 0.7, 0)
 ToggleButton.Text = "Ativar Fly"
 ToggleButton.BackgroundColor3 = Color3.fromRGB(70, 70, 70)
 ToggleButton.TextColor3 = Color3.fromRGB(255, 255, 255)
 
 -- Função de Fly
+local alignOrientation = Instance.new("AlignOrientation")
+local vectorForce = Instance.new("VectorForce")
+
+alignOrientation.Attachment0 = humanoidRootPart:FindFirstChild("RootAttachment")
+alignOrientation.MaxTorque = math.huge
+alignOrientation.Responsiveness = 50
+alignOrientation.Parent = humanoidRootPart
+
+vectorForce.Attachment0 = humanoidRootPart:FindFirstChild("RootAttachment")
+vectorForce.Force = Vector3.zero
+vectorForce.RelativeTo = Enum.ActuatorRelativeTo.World
+vectorForce.ApplyAtCenterOfMass = true
+vectorForce.Parent = humanoidRootPart
+
 local function startFly()
-    local bodyGyro = Instance.new("BodyGyro", humanoidRootPart)
-    local bodyVelocity = Instance.new("BodyVelocity", humanoidRootPart)
-
-    bodyGyro.MaxTorque = Vector3.new(math.huge, math.huge, math.huge)
-    bodyGyro.CFrame = humanoidRootPart.CFrame
-
-    bodyVelocity.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
-    bodyVelocity.Velocity = Vector3.zero
+    humanoid:ChangeState(Enum.HumanoidStateType.Physics)
 
     local flyConnection
-    flyConnection = game:GetService("RunService").Heartbeat:Connect(function()
+    flyConnection = RunService.Heartbeat:Connect(function()
         if not flying then
             flyConnection:Disconnect()
-            bodyGyro:Destroy()
-            bodyVelocity:Destroy()
+            vectorForce.Force = Vector3.zero
+            humanoid:ChangeState(Enum.HumanoidStateType.GettingUp)
             return
         end
 
@@ -55,29 +138,28 @@ local function startFly()
         local moveDirection = Vector3.zero
 
         if UserInputService:IsKeyDown(Enum.KeyCode.W) then
-            moveDirection = moveDirection + camera.CFrame.LookVector
+            moveDirection += camera.CFrame.LookVector
         end
         if UserInputService:IsKeyDown(Enum.KeyCode.S) then
-            moveDirection = moveDirection - camera.CFrame.LookVector
+            moveDirection -= camera.CFrame.LookVector
         end
         if UserInputService:IsKeyDown(Enum.KeyCode.A) then
-            moveDirection = moveDirection - camera.CFrame.RightVector
+            moveDirection -= camera.CFrame.RightVector
         end
         if UserInputService:IsKeyDown(Enum.KeyCode.D) then
-            moveDirection = moveDirection + camera.CFrame.RightVector
+            moveDirection += camera.CFrame.RightVector
         end
         if UserInputService:IsKeyDown(Enum.KeyCode.Space) then
-            moveDirection = moveDirection + Vector3.new(0, 1, 0)
+            moveDirection += Vector3.new(0, 1, 0)
         end
         if UserInputService:IsKeyDown(Enum.KeyCode.LeftControl) then
-            moveDirection = moveDirection - Vector3.new(0, 1, 0)
+            moveDirection -= Vector3.new(0, 1, 0)
         end
 
-        bodyVelocity.Velocity = moveDirection.Unit * speed
+        vectorForce.Force = moveDirection.Unit * speed
     end)
 end
 
--- Alternar Fly
 local function toggleFly()
     flying = not flying
     if flying then
@@ -88,7 +170,6 @@ local function toggleFly()
     end
 end
 
--- Atualizar Velocidade
 SpeedBox.FocusLost:Connect(function(enterPressed)
     if enterPressed then
         local newSpeed = tonumber(SpeedBox.Text)
@@ -99,7 +180,6 @@ SpeedBox.FocusLost:Connect(function(enterPressed)
 end)
 
 ToggleButton.MouseButton1Click:Connect(toggleFly)
-
 UserInputService.InputBegan:Connect(function(input, isTyping)
     if not isTyping and input.KeyCode == Enum.KeyCode.E then
         toggleFly()
